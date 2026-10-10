@@ -29,8 +29,8 @@ export default function InfluencerHome({ subdomain }: Props) {
     return (
       <div style={{ textAlign: 'center', padding: 80 }}>
         <Empty description={error || '未找到该红人主页'} />
-        <Button type="primary" href="https://www.vatapex.com" style={{ marginTop: 24 }}>
-          返回纬达派官网
+        <Button type="primary" href="/influencers" style={{ marginTop: 24 }}>
+          返回红人案例库
         </Button>
       </div>
     );
@@ -43,16 +43,16 @@ export default function InfluencerHome({ subdomain }: Props) {
   };
 
   return (
-    <div style={{ background: '#f7f9fc', minHeight: '100vh' }}>
+    <div style={{ background: '#f7f9fc', padding: '24px 0 40px' }}>
       {/* Hero */}
-      <div style={{ background: '#fff', padding: '48px 24px 32px' }}>
+      <div style={{ background: '#fff', padding: '32px 24px', marginBottom: 24 }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <Row gutter={[24, 24]} align="middle">
             <Col xs={24} md={16}>
               <div style={{ fontSize: 12, color: '#faad14', fontWeight: 600, marginBottom: 8 }}>
                 纬达派 · 红人推荐
               </div>
-              <h1 style={{ fontSize: 32, fontWeight: 700, margin: 0 }}>
+              <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>
                 {inf.name || inf.handle || '红人主页'}
               </h1>
               {inf.handle && (
@@ -85,8 +85,8 @@ export default function InfluencerHome({ subdomain }: Props) {
       </div>
 
       {/* 产品列表 */}
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 24px' }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 24px' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>
           {inf.name || '我'} 的推荐产品
         </h2>
 
@@ -160,7 +160,7 @@ export default function InfluencerHome({ subdomain }: Props) {
         )}
       </div>
 
-      <div style={{ textAlign: 'center', padding: '32px 24px', color: '#8896a8', fontSize: 12 }}>
+      <div style={{ textAlign: 'center', padding: '32px 24px 0', color: '#8896a8', fontSize: 12 }}>
         由 <a href="https://www.vatapex.com" style={{ color: '#8896a8' }}>纬达派 Vatapex</a> 提供技术支持
       </div>
     </div>
