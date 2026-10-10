@@ -8,6 +8,8 @@ import Products from './pages/Products';
 import ProductDetail from './pages/ProductDetail';
 import Interest from './pages/Interest';
 import InfluencerHome from './pages/InfluencerHome';
+import InfluencerLogin from './pages/InfluencerLogin';
+import InfluencerDashboard from './pages/InfluencerDashboard';
 
 // 从 URL 拿 handle，传给 InfluencerHome
 function InfluencerRoute() {
@@ -29,6 +31,8 @@ function App() {
           <Route path="/interest" element={<Interest />} />
           {/* ★ 红人专属主页 */}
           <Route path="/influencer/:handle" element={<InfluencerRoute />} />
+          <Route path="/influencer-login" element={<InfluencerLogin />} />
+          <Route path="/influencer-portal" element={<InfluencerDashboard />} />
         </Routes>
       </div>
       <Footer />
