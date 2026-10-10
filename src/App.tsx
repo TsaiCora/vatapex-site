@@ -11,7 +11,6 @@ import InfluencerHome from './pages/InfluencerHome';
 import InfluencerLogin from './pages/InfluencerLogin';
 import InfluencerDashboard from './pages/InfluencerDashboard';
 
-// 从 URL 拿 handle，传给 InfluencerHome
 function InfluencerRoute() {
   const { handle } = useParams<{ handle: string }>();
   return <InfluencerHome subdomain={handle || ''} />;
@@ -29,8 +28,9 @@ function App() {
           <Route path="/products" element={<Products />} />
           <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/interest" element={<Interest />} />
-          {/* ★ 红人专属主页 */}
+          {/* 红人专属主页 */}
           <Route path="/influencer/:handle" element={<InfluencerRoute />} />
+          {/* ★ 红人登录 + 红人中心 */}
           <Route path="/influencer-login" element={<InfluencerLogin />} />
           <Route path="/influencer-portal" element={<InfluencerDashboard />} />
         </Routes>

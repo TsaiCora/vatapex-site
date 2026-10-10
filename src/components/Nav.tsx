@@ -49,8 +49,8 @@ export default function Nav() {
         style={{ flex: 1, justifyContent: 'center', borderBottom: 'none' }}
       />
       <Space>
-        <Button type="default" onClick={() => nav('/influencer-login')}>
-           红人登录
+        <Button onClick={() => nav('/influencer-login')}>
+          红人登录
         </Button>
         <Button type="primary" onClick={() => nav('/interest')}>
           立即合作

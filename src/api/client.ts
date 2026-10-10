@@ -7,7 +7,7 @@ const client = axios.create({
 });
 
 client.interceptors.request.use((config) => {
-  // 优先用红人 token，其次用内部 token
+  // 优先用红人 token
   const infToken = localStorage.getItem('inf_token');
   const adminToken = localStorage.getItem('jwt_token');
   const token = infToken || adminToken;
@@ -21,18 +21,27 @@ client.interceptors.response.use(
     const status = error.response?.status;
     const url: string = error.config?.url || '';
     const isPublic = url.startsWith('/api/v1/public/');
+    const isInfluencerApi = url.startsWith('/api/v1/influencer/');
 
-    // 红人 token 过期 → 跳红人登录
+    // 公开接口 401 不跳登录
     if (status === 401 && !isPublic) {
-      const wasInfluencer = url.startsWith('/api/v1/influencer/');
+      // 清掉所有 token
       localStorage.removeItem('inf_token');
       localStorage.removeItem('inf_user');
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('user');
-      if (wasInfluencer) {
-        window.location.href = '/influencer-login';
-      } else if (window.location.pathname !== '/login' && window.location.pathname !== '/influencer-login') {
-        window.location.href = '/login';
+
+      // 红人接口 → 红人登录页；其他 → 通用登录页
+      const isOnLoginPage =
+        window.location.pathname === '/login' ||
+        window.location.pathname === '/influencer-login';
+
+      if (!isOnLoginPage) {
+        if (isInfluencerApi) {
+          window.location.href = '/influencer-login';
+        } else {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

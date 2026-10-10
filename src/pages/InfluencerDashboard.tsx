@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Card, Table, Tag, Space, Button, Input, Modal, Form, InputNumber, message, Tabs, Image, Popconfirm } from 'antd';
-import { PlusOutlined, SearchOutlined, LogoutOutlined, CopyOutlined } from '@ant-design/icons';
+import {
+  Card, Table, Tag, Space, Button, Input, Modal, Form, InputNumber,
+  message, Tabs, Image, Popconfirm, Empty,
+} from 'antd';
+import {
+  PlusOutlined, SearchOutlined, LogoutOutlined, CopyOutlined,
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
 
@@ -91,7 +96,11 @@ export default function InfluencerDashboard() {
   };
 
   const handleCopyShareLink = () => {
-    const url = `https://shop.vatapex.com/influencer/${me?.handle || ''}`;
+    if (!me?.handle) {
+      message.warning('你没有设置 handle，无法生成分享链接');
+      return;
+    }
+    const url = `https://shop.vatapex.com/influencer/${me.handle}`;
     navigator.clipboard.writeText(url).then(() => message.success(`已复制：${url}`));
   };
 
@@ -105,7 +114,10 @@ export default function InfluencerDashboard() {
   return (
     <div className="page-container">
       {/* 顶部 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12,
+      }}>
         <div>
           <h1 className="page-title" style={{ marginBottom: 4 }}>红人中心</h1>
           <p style={{ color: '#667085', margin: 0 }}>
@@ -139,12 +151,19 @@ export default function InfluencerDashboard() {
                       title: '产品图', dataIndex: 'product_image', width: 80,
                       render: (v: string) => v
                         ? <Image src={v} width={50} height={50} style={{ objectFit: 'cover' }} />
-                        : <div style={{ width: 50, height: 50, background: '#f0f0f0' }} />,
+                        : <div style={{ width: 50, height: 50, background: '#f0f0f0', borderRadius: 4 }} />,
                     },
-                    { title: '产品标题', dataIndex: 'product_title' },
-                    { title: '折扣码', dataIndex: 'discount_code',
-                      render: (v: string) => v ? <Tag color="purple" style={{ fontFamily: 'monospace' }}>{v}</Tag> : '-' },
-                    { title: '折扣价', dataIndex: 'deal_price', render: (v: number) => v ? `$${v}` : '-' },
+                    { title: '产品标题', dataIndex: 'product_title', ellipsis: true },
+                    {
+                      title: '折扣码', dataIndex: 'discount_code',
+                      render: (v: string) => v
+                        ? <Tag color="purple" style={{ fontFamily: 'monospace' }}>{v}</Tag>
+                        : '-',
+                    },
+                    {
+                      title: '折扣价', dataIndex: 'deal_price',
+                      render: (v: number) => v ? `$${v}` : '-',
+                    },
                     { title: '渠道标签', dataIndex: 'channel_label', render: (v: string) => v || '-' },
                     { title: '排序', dataIndex: 'sort_order', width: 70 },
                     {
@@ -156,7 +175,11 @@ export default function InfluencerDashboard() {
                       ),
                     },
                   ]}
-                  locale={{ emptyText: '还没有推荐产品，去"挑产品"添加吧' }}
+                  locale={{
+                    emptyText: (
+                      <Empty description="还没有推荐产品，去「挑产品」添加吧" />
+                    )
+                  }}
                 />
               </Card>
             ),
@@ -166,7 +189,7 @@ export default function InfluencerDashboard() {
             label: '挑产品',
             children: (
               <Card>
-                <Space style={{ marginBottom: 16 }}>
+                <Space style={{ marginBottom: 16 }} wrap>
                   <Input
                     placeholder="搜索产品标题 / 平台 ID"
                     prefix={<SearchOutlined />}
@@ -187,16 +210,20 @@ export default function InfluencerDashboard() {
                       title: '产品图', dataIndex: 'image_url', width: 80,
                       render: (v: string) => v
                         ? <Image src={v} width={50} height={50} style={{ objectFit: 'cover' }} />
-                        : <div style={{ width: 50, height: 50, background: '#f0f0f0' }} />,
+                        : <div style={{ width: 50, height: 50, background: '#f0f0f0', borderRadius: 4 }} />,
                     },
-                    { title: '产品标题', dataIndex: 'title' },
+                    { title: '产品标题', dataIndex: 'title', ellipsis: true },
                     { title: '平台ID', dataIndex: 'platform_product_id', width: 120 },
-                    { title: '原价', dataIndex: 'original_price', width: 90,
-                      render: (v: number) => v ? `$${v}` : '-' },
-                    { title: '当前价', dataIndex: 'price', width: 90,
-                      render: (v: number) => v ? `$${v}` : '-' },
                     {
-                      title: '操作', width: 120,
+                      title: '原价', dataIndex: 'original_price', width: 90,
+                      render: (v: number) => v ? `$${v}` : '-',
+                    },
+                    {
+                      title: '当前价', dataIndex: 'price', width: 90,
+                      render: (v: number) => v ? `$${v}` : '-',
+                    },
+                    {
+                      title: '操作', width: 130,
                       render: (_: any, r: any) => (
                         <Button
                           size="small"
@@ -255,8 +282,9 @@ export default function InfluencerDashboard() {
         width={520}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="discount_code" label="使用折扣码">
-            <Input placeholder="选择或输入你的折扣码" />
+          <Form.Item name="discount_code" label="使用折扣码"
+                     extra="从你的折扣码里选，粉丝点复制即可">
+            <Input placeholder="如 VTXTECHC" />
           </Form.Item>
           <Form.Item name="deal_price" label="折扣价（$）">
             <InputNumber style={{ width: '100%' }} min={0} step={0.01} />
