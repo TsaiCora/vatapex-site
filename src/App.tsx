@@ -10,6 +10,7 @@ import Interest from './pages/Interest';
 import InfluencerHome from './pages/InfluencerHome';
 import InfluencerLogin from './pages/InfluencerLogin';
 import InfluencerDashboard from './pages/InfluencerDashboard';
+import InfluencerPick from './pages/InfluencerPick';
 
 function InfluencerRoute() {
   const { handle } = useParams<{ handle: string }>();
@@ -33,6 +34,7 @@ function App() {
           {/* ★ 红人登录 + 红人中心 */}
           <Route path="/influencer-login" element={<InfluencerLogin />} />
           <Route path="/influencer-portal" element={<InfluencerDashboard />} />
+          <Route path="/pick/:token" element={<InfluencerPick />} />
         </Routes>
       </div>
       <Footer />
