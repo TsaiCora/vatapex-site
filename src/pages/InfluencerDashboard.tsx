@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
   Card, Table, Tag, Space, Button, Input, Modal, Form, InputNumber,
-  message, Tabs, Image, Popconfirm, Empty, Upload, Select,
+  message, Tabs, Image, Popconfirm, Empty, Upload, Select,Alert,
 } from 'antd';
 import {
   PlusOutlined, SearchOutlined, LogoutOutlined, CopyOutlined, InboxOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
+
 
 const VIDEO_TYPES = [
   { value: '开箱', label: '开箱' },
@@ -414,6 +415,19 @@ export default function InfluencerDashboard() {
                     { title: '截图', dataIndex: 'screenshot_url', width: 80,
                       render: (v: string) => v ? <Image src={v} width={40} height={40} style={{ objectFit: 'cover' }} /> : '-' },
                     {
+                      title: '审核', dataIndex: 'screenshot_status', width: 100,
+                      render: (v: string, r: any) => {
+                        if (!r.screenshot_url) return <span style={{ color: '#ccc' }}>未上传</span>;
+                        const map: any = {
+                          pending: { color: 'orange', label: '⏳ 审核中' },
+                          approved: { color: 'green', label: '✅ 已通过' },
+                          rejected: { color: 'red', label: '❌ 未通过' },
+                        };
+                        const m = map[v] || map.pending;
+                        return <Tag color={m.color}>{m.label}</Tag>;
+                      },
+                    },
+                    {
                       title: '操作', width: 140,
                       render: (_: any, r: any) => (
                         <Space>
@@ -626,6 +640,15 @@ export default function InfluencerDashboard() {
         width={700}
       >
         <Form form={postForm} layout="vertical">
+        {editingPost?.screenshot_status === 'rejected' && editingPost?.screenshot_note && (
+          <Alert
+            type="error"
+            message="上次截图未通过"
+            description={editingPost.screenshot_note}
+            style={{ marginBottom: 12 }}
+            showIcon
+          />
+        )}
           <Form.Item name="title" label="标题" rules={[{ required: true }]}>
             <Input placeholder="如 Anker 充电宝开箱" />
           </Form.Item>
