@@ -39,45 +39,60 @@ export default function Channels() {
   useEffect(() => { load(); }, [type, country, isSeller]);
 
   const columns: any[] = [
-    {
-      title: '编号', dataIndex: 'public_code', width: 100,
-      render: (v: string) => <Tag color="purple" style={{ fontFamily: 'monospace' }}>{v}</Tag>,
-    },
-    { title: '类型', dataIndex: 'type', width: 110 },
-    {
-      title: '国家', dataIndex: 'country', width: 90,
-      render: (v: string) => v ? <Tag color="blue">{v}</Tag> : '-',
-    },
-    {
-      title: '粉丝数', dataIndex: 'followers', width: 110,
-      render: (v: number) => (v || 0).toLocaleString(),
-    },
-    { title: '发帖类型', dataIndex: 'post_type', width: 150, render: (v: string) => v || '-' },
-    { title: '位置', dataIndex: 'post_position', width: 120, render: (v: string) => v || '-' },
-    { title: '时长', dataIndex: 'post_duration', width: 120, render: (v: string) => v || '-' },
+    { title: '编号', dataIndex: 'public_code', width: 100,
+      render: (v: string) => <Tag color="purple" style={{ fontFamily: 'monospace' }}>{v}</Tag> },
+    { title: '类型', dataIndex: 'type', width: 110,
+      render: (v: string) => {
+        const map: any = { deal_site: 'Deal 站', fb_group: 'FB 群组', other: '其他' };
+        return <Tag>{map[v] || v}</Tag>;
+      } },
+    { title: '国家', dataIndex: 'country', width: 80,
+      render: (v: string) => v ? <Tag color="blue">{v}</Tag> : '-' },
+    { title: '粉丝数', dataIndex: 'followers', width: 100,
+      render: (v: number) => (v || 0).toLocaleString() },
+    { title: '发帖类型', dataIndex: 'post_type', width: 140, render: (v: string) => v || '-' },
+    { title: '位置', dataIndex: 'post_position', width: 100, render: (v: string) => v || '-' },
+    { title: '时长', dataIndex: 'post_duration', width: 100, render: (v: string) => v || '-' },
   ];
 
-  // 卖家登录 → 加报价列
   if (isSeller) {
     columns.push({
-      title: '报价',
-      width: 130,
-      render: (_: any, r: any) => {
-        if (!r.price_member) return <span style={{ color: '#999' }}>面议</span>;
-        return (
-          <span style={{ color: '#cf1322', fontWeight: 600 }}>
-            ¥{r.price_member}
-          </span>
-        );
-      },
+      title: '报价', width: 100,
+      render: (_: any, r: any) => r.price_member
+        ? <span style={{ color: '#cf1322', fontWeight: 600 }}>¥{r.price_member}</span>
+        : <span style={{ color: '#999' }}>面议</span>,
     });
   }
+
+  columns.push({
+    title: '建议 / 要求', width: 300,
+    render: (_: any, r: any) => {
+      const parts: string[] = [];
+      if (r.notes) parts.push(`📝 ${r.notes}`);
+      if (r.group_rules) parts.push(`📋 ${r.group_rules}`);
+      if (parts.length === 0) return <span style={{ color: '#999' }}>-</span>;
+      return (
+        <div style={{ fontSize: 12, color: '#595959', lineHeight: 1.6, maxWidth: 300 }}>
+          {parts.map((p, i) => <div key={i} style={{ marginBottom: 2 }}>{p}</div>)}
+        </div>
+      );
+    },
+  });
+
+  columns.push({
+    title: '操作', width: 120, fixed: 'right',
+    render: (_: any, r: any) => (
+      <Button size="small" type="primary" onClick={() => nav(`/interest?code=${r.public_code}&type=channel`)}>
+        合作意向
+      </Button>
+    ),
+  });
 
   return (
     <div className="page-container">
       <h1 className="page-title">渠道案例库</h1>
       <p className="page-subtitle">
-        {isSeller ? '查看渠道报价、发帖类型和联系方式。' : 'Deal 站 / FB 群组 渠道资源一览。'}
+        {isSeller ? '查看渠道报价、发帖类型和合作要求。' : 'Deal 站 / FB 群组渠道资源一览。'}
       </p>
       <Card>
         <Space style={{ marginBottom: 16 }} wrap>
@@ -88,11 +103,10 @@ export default function Channels() {
             { value: 'CA', label: 'CA' }, { value: 'AU', label: 'AU' },
           ]} />
           <Button type="primary" onClick={load} loading={loading}>筛选</Button>
-          {!isSeller && <Button href="/interest" type="link">提交合作意向 →</Button>}
         </Space>
         <Table dataSource={data} rowKey="public_code" loading={loading} columns={columns} pagination={{ pageSize: 20 }} scroll={{ x: 'max-content' }} />
         <div style={{ marginTop: 16, textAlign: 'center', color: '#888', fontSize: 12 }}>
-          {isSeller ? '渠道报价为卖家侧一口价' : '以上为脱敏展示，如需渠道报价、联系方式，请提交合作意向。'}
+          点击"合作意向"提交需求，我们会尽快联系你。
         </div>
       </Card>
     </div>

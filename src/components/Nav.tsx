@@ -4,16 +4,15 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 const { Header } = Layout;
 
-// 公众导航
-const NAV_ITEMS_PUBLIC = [
+const NAV_PUBLIC = [
   { key: '/', label: '首页' },
+  { key: '/products', label: '产品展示' },
   { key: '/influencers', label: '红人案例库' },
   { key: '/channels', label: '渠道案例库' },
   { key: '/interest', label: '合作意向' },
 ];
 
-// 卖家导航（含数据中心）
-const NAV_ITEMS_SELLER = [
+const NAV_SELLER = [
   { key: '/', label: '首页' },
   { key: '/seller', label: '数据中心' },
   { key: '/influencers', label: '红人案例库' },
@@ -21,16 +20,26 @@ const NAV_ITEMS_SELLER = [
   { key: '/interest', label: '合作意向' },
 ];
 
+const NAV_INFLUENCER = [
+  { key: '/', label: '首页' },
+  { key: '/products', label: '产品展示' },
+  { key: '/influencer-portal', label: '红人管理中心' },
+  { key: '/interest', label: '合作意向' },
+];
+
 export default function Nav() {
   const nav = useNavigate();
   const loc = useLocation();
 
-  // 判断卖家登录
   const sellerUser = JSON.parse(localStorage.getItem('seller_user') || 'null');
   const sellerToken = localStorage.getItem('seller_token');
   const isSellerLogged = !!sellerToken && sellerUser?.role === 'seller';
 
-  const NAV_ITEMS = isSellerLogged ? NAV_ITEMS_SELLER : NAV_ITEMS_PUBLIC;
+  const infUser = JSON.parse(localStorage.getItem('inf_user') || 'null');
+  const infToken = localStorage.getItem('inf_token');
+  const isInfLogged = !!infToken && infUser?.role === 'influencer';
+
+  const NAV_ITEMS = isInfLogged ? NAV_INFLUENCER : isSellerLogged ? NAV_SELLER : NAV_PUBLIC;
 
   const handleSellerLogout = () => {
     localStorage.removeItem('seller_token');
@@ -39,10 +48,18 @@ export default function Nav() {
     nav('/');
   };
 
-  // 高亮：/seller/influencer/xxx 也算 /influencers
+  const handleInfLogout = () => {
+    localStorage.removeItem('inf_token');
+    localStorage.removeItem('inf_user');
+    message.success('已退出');
+    nav('/');
+  };
+
   const selectedKey = (() => {
     if (loc.pathname.startsWith('/seller/influencer')) return '/influencers';
     if (loc.pathname === '/seller' || loc.pathname === '/seller/') return '/seller';
+    if (loc.pathname.startsWith('/influencer-portal')) return '/influencer-portal';
+    if (loc.pathname.startsWith('/pick/')) return '/influencer-portal';
     const match = NAV_ITEMS
       .map(i => i.key)
       .filter(k => k !== '/' && loc.pathname.startsWith(k))
@@ -78,22 +95,38 @@ export default function Nav() {
         style={{ flex: 1, justifyContent: 'center', borderBottom: 'none' }}
       />
       <Space>
-        {isSellerLogged ? (
+        {isInfLogged ? (
           <Dropdown
             menu={{
               items: [
-                { key: 'seller-name', label: `👤 ${sellerUser.name || sellerUser.email}`, disabled: true },
+                { key: 'name', label: `🎬 ${infUser.name || infUser.email}`, disabled: true },
                 { type: 'divider' },
+                { key: 'portal', label: '红人管理中心', onClick: () => nav('/influencer-portal') },
+                { key: 'logout', label: '退出登录', icon: <LogoutOutlined />, onClick: handleInfLogout },
+              ],
+            }}
+          >
+            <Button icon={<UserOutlined />}>{infUser.name || '红人'}</Button>
+          </Dropdown>
+        ) : isSellerLogged ? (
+          <Dropdown
+            menu={{
+              items: [
+                { key: 'name', label: `👤 ${sellerUser.name || sellerUser.email}`, disabled: true },
+                { type: 'divider' },
+                { key: 'portal', label: '卖家数据中心', onClick: () => nav('/seller') },
                 { key: 'logout', label: '退出登录', icon: <LogoutOutlined />, onClick: handleSellerLogout },
               ],
             }}
           >
-            <Button icon={<UserOutlined />}>{sellerUser.name || '卖家中心'}</Button>
+            <Button icon={<UserOutlined />}>{sellerUser.name || '卖家'}</Button>
           </Dropdown>
         ) : (
-          <Button onClick={() => nav('/seller-login')}>卖家登录</Button>
+          <>
+            <Button onClick={() => nav('/seller-login')}>卖家登录</Button>
+            <Button onClick={() => nav('/influencer-login')}>红人登录</Button>
+          </>
         )}
-        <Button onClick={() => nav('/influencer-login')}>红人登录</Button>
         <Button type="primary" onClick={() => nav('/interest')}>立即合作</Button>
       </Space>
     </Header>

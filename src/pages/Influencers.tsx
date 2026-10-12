@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, Table, Input, Select, Space, Button, Tag, message } from 'antd';
+import { Card, Table, Input, Select, Space, Button, Tag, message, Alert } from 'antd';
 import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
@@ -21,12 +21,9 @@ const COUNTRIES = [
 ];
 
 const PRODUCT_TAGS = [
-  { value: '儿童类', label: '儿童类' },
-  { value: '宠物类', label: '宠物类' },
-  { value: '家居类', label: '家居类' },
-  { value: '电子产品类', label: '电子产品类' },
-  { value: '科技类', label: '科技类' },
-  { value: '时尚美容类', label: '时尚美容类' },
+  { value: '儿童类', label: '儿童类' }, { value: '宠物类', label: '宠物类' },
+  { value: '家居类', label: '家居类' }, { value: '电子产品类', label: '电子产品类' },
+  { value: '科技类', label: '科技类' }, { value: '时尚美容类', label: '时尚美容类' },
   { value: '厨房用品', label: '厨房用品' },
 ];
 
@@ -103,33 +100,24 @@ export default function Influencers() {
   });
 
   const columns: any[] = [
-    {
-      title: '编号', dataIndex: 'public_code', width: 110,
-      render: (v: string) => <Tag color="purple" style={{ fontFamily: 'monospace' }}>{v}</Tag>,
-    },
-    {
-      title: '国家', dataIndex: 'country', width: 90,
-      render: (v: string) => v ? <Tag color="blue">{v}</Tag> : '-',
-    },
-    {
-      title: '粉丝', dataIndex: 'followers', width: 110,
-      render: (v: number) => (v || 0).toLocaleString(),
-    },
+    { title: '编号', dataIndex: 'public_code', width: 110,
+      render: (v: string) => <Tag color="purple" style={{ fontFamily: 'monospace' }}>{v}</Tag> },
+    { title: '国家', dataIndex: 'country', width: 90,
+      render: (v: string) => v ? <Tag color="blue">{v}</Tag> : '-' },
+    { title: '粉丝', dataIndex: 'followers', width: 110,
+      render: (v: number) => (v || 0).toLocaleString() },
     { title: '垂类', dataIndex: 'niche', width: 140 },
-    {
-      title: '产品标签', dataIndex: 'product_tags', width: 260,
+    { title: '产品标签', dataIndex: 'product_tags', width: 260,
       render: (v: string) => v ? (
         <Space wrap size={[2, 2]}>
           {v.split(',').filter(Boolean).map(t => <Tag key={t} color="cyan" style={{ fontSize: 11 }}>{t}</Tag>)}
         </Space>
-      ) : '-',
-    },
+      ) : '-' },
   ];
 
   if (isSeller) {
     columns.push({
-      title: '合作报价',
-      width: 260,
+      title: '合作报价', width: 260,
       render: (_: any, r: any) => {
         const currency = r.price_currency || 'CNY';
         const dc = r.default_code;
@@ -140,16 +128,8 @@ export default function Influencers() {
         if (!dc) {
           mainBlock = <Tag color="orange">待商务报价</Tag>;
         } else {
-          const { main, tag } = renderBilling(
-            dc.billing_mode, Number(dc.seller_base_price || 0),
-            Number(dc.seller_commission_rate || 0), currency,
-          );
-          mainBlock = (
-            <>
-              {main}
-              <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{tag}（默认）</div>
-            </>
-          );
+          const { main, tag } = renderBilling(dc.billing_mode, Number(dc.seller_base_price || 0), Number(dc.seller_commission_rate || 0), currency);
+          mainBlock = <>{main}<div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{tag}（默认）</div></>;
         }
 
         const refBlock = refPrice > 0 && (
@@ -169,9 +149,6 @@ export default function Influencers() {
         return <div>{mainBlock}{refBlock}{othersBlock}</div>;
       },
     });
-  }
-
-  if (isSeller) {
     columns.push({
       title: '操作', width: 100, fixed: 'right',
       render: (_: any, r: any) => (
@@ -181,8 +158,10 @@ export default function Influencers() {
   } else {
     columns.push({
       title: '操作', width: 120, fixed: 'right',
-      render: () => (
-        <Button size="small" type="link" onClick={() => nav('/interest')}>合作咨询</Button>
+      render: (_: any, r: any) => (
+        <Button size="small" type="primary" onClick={() => nav(`/interest?code=${r.public_code}&type=influencer`)}>
+          合作意向
+        </Button>
       ),
     });
   }
@@ -193,6 +172,21 @@ export default function Influencers() {
       <p className="page-subtitle">
         {isSeller ? '查看报价、系列、帖子案例和合作数据。' : '浏览红人资源，了解合作方向。详细报价请联系商务。'}
       </p>
+
+      {!isSeller && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={
+            <span>
+              🎬 如果你是红人，想要合作推广？请联系商务微信 <b>vatapex_seller</b> 开通账号，
+              或 <a href="/influencer-login">点击此处登录</a> 进入管理中心。
+            </span>
+          }
+        />
+      )}
+
       <Card>
         <Space style={{ marginBottom: 16 }} wrap>
           <Select placeholder="红人类型" style={{ width: 140 }} allowClear value={poolFilter} onChange={setPoolFilter} options={POOL_TYPES} />

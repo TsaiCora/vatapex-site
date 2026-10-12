@@ -1,15 +1,22 @@
 import { useState } from 'react';
-import { Card, Form, Input, Button, message } from 'antd';
+import { Card, Form, Input, Button, message, Alert } from 'antd';
+import { useSearchParams } from 'react-router-dom';
 import client from '../api/client';
 
 export default function Interest() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+  const codeFromUrl = searchParams.get('code') || '';
+  const typeFromUrl = searchParams.get('type') || '';
 
   const onFinish = async (values: any) => {
     setLoading(true);
     try {
-      await client.post('/api/v1/public/interest', values);
+      await client.post('/api/v1/public/interest', {
+        ...values,
+        selections: codeFromUrl ? `[${typeFromUrl}] ${codeFromUrl}` : '',
+      });
       message.success('提交成功，我们会在 1 个工作日内联系您');
       form.resetFields();
     } catch (e: any) {
@@ -23,6 +30,16 @@ export default function Interest() {
     <div className="page-container" style={{ maxWidth: 720 }}>
       <h1 className="page-title">提交合作意向</h1>
       <p className="page-subtitle">填写以下信息，我们的商务会在 1 个工作日内联系您。</p>
+
+      {codeFromUrl && (
+        <Alert
+          type="info"
+          showIcon
+          message={`已选择：${codeFromUrl}`}
+          description={typeFromUrl === 'influencer' ? '红人编号' : typeFromUrl === 'channel' ? '渠道编号' : ''}
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       <Card>
         <Form form={form} layout="vertical" onFinish={onFinish}>
@@ -44,10 +61,6 @@ export default function Interest() {
 
           <Form.Item name="company" label="公司">
             <Input placeholder="公司名称" />
-          </Form.Item>
-
-          <Form.Item name="selections" label="感兴趣的红人 / 渠道 / 产品编号">
-            <Input placeholder="如 VTX0001, DP001, 产品ID" />
           </Form.Item>
 
           <Form.Item name="note" label="备注">

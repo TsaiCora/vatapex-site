@@ -44,11 +44,7 @@ export default function Home() {
 
         <Row gutter={[24, 24]}>
           <Col xs={24} md={12}>
-            <Card
-              hoverable
-              style={{ height: '100%' }}
-              onClick={() => nav('/influencers')}
-            >
+            <Card hoverable style={{ height: '100%' }} onClick={() => nav('/influencers')}>
               <TeamOutlined style={{ fontSize: 36, color: '#1677ff' }} />
               <div style={{ fontSize: 12, color: '#faad14', marginTop: 12, fontWeight: 600 }}>
                 INFLUENCER
@@ -112,7 +108,25 @@ export default function Home() {
               <Card hoverable onClick={() => nav('/channels')} style={{ textAlign: 'center' }}>
                 <GlobalOutlined style={{ fontSize: 40, color: '#52c41a' }} />
                 <h3 style={{ marginTop: 16 }}>渠道案例库</h3>
-                <p style={{ color: '#667085' }}>Deal 站 / FB 群组 / Vipon</p>
+                <p style={{ color: '#667085' }}>Deal 站 / FB 群组</p>
+              </Card>
+            </Col>
+          </Row>
+
+          {/* ★ 红人合作入口 */}
+          <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
+            <Col xs={24}>
+              <Card
+                hoverable
+                style={{ textAlign: 'center', background: '#f0f5ff', borderColor: '#1677ff' }}
+                onClick={() => nav('/influencer-login')}
+              >
+                <div style={{ fontSize: 40 }}>🎬</div>
+                <h3 style={{ marginTop: 12, marginBottom: 8 }}>我是红人，想合作推广</h3>
+                <p style={{ color: '#667085', marginBottom: 16 }}>
+                  登录后进入红人管理中心，挑选产品、上传案例、管理折扣码
+                </p>
+                <Button type="primary">红人登录 →</Button>
               </Card>
             </Col>
           </Row>
