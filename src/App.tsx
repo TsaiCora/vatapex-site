@@ -12,6 +12,7 @@ import InfluencerLogin from './pages/InfluencerLogin';
 import InfluencerDashboard from './pages/InfluencerDashboard';
 import InfluencerPick from './pages/InfluencerPick';
 import SellerLogin from './pages/SellerLogin';
+import SellerPortal from './pages/SellerPortal';
 import InfluencerDetail from './pages/InfluencerDetail';
 
 function InfluencerRoute() {
@@ -42,8 +43,9 @@ function App() {
           {/* 红人免登录挑货 */}
           <Route path="/pick/:token" element={<InfluencerPick />} />
 
-          {/* 卖家登录 + 卖家看的红人详情 */}
+          {/* 卖家登录 + 数据中心 + 红人详情 */}
           <Route path="/seller-login" element={<SellerLogin />} />
+          <Route path="/seller" element={<SellerPortal />} />
           <Route path="/seller/influencer/:publicCode" element={<InfluencerDetail />} />
         </Routes>
       </div>

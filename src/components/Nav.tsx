@@ -4,9 +4,18 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 const { Header } = Layout;
 
-const NAV_ITEMS = [
+// 公众导航
+const NAV_ITEMS_PUBLIC = [
   { key: '/', label: '首页' },
-  { key: '/products', label: '产品展示' },
+  { key: '/influencers', label: '红人案例库' },
+  { key: '/channels', label: '渠道案例库' },
+  { key: '/interest', label: '合作意向' },
+];
+
+// 卖家导航（含数据中心）
+const NAV_ITEMS_SELLER = [
+  { key: '/', label: '首页' },
+  { key: '/seller', label: '数据中心' },
   { key: '/influencers', label: '红人案例库' },
   { key: '/channels', label: '渠道案例库' },
   { key: '/interest', label: '合作意向' },
@@ -16,10 +25,12 @@ export default function Nav() {
   const nav = useNavigate();
   const loc = useLocation();
 
-  // 判断登录状态
-  const sellerUser = JSON.parse(localStorage.getItem('seller_user') || '{}');
+  // 判断卖家登录
+  const sellerUser = JSON.parse(localStorage.getItem('seller_user') || 'null');
   const sellerToken = localStorage.getItem('seller_token');
   const isSellerLogged = !!sellerToken && sellerUser?.role === 'seller';
+
+  const NAV_ITEMS = isSellerLogged ? NAV_ITEMS_SELLER : NAV_ITEMS_PUBLIC;
 
   const handleSellerLogout = () => {
     localStorage.removeItem('seller_token');
@@ -28,11 +39,16 @@ export default function Nav() {
     nav('/');
   };
 
-  // 高亮
-  const selectedKey = NAV_ITEMS
-    .map(i => i.key)
-    .filter(k => k !== '/' && loc.pathname.startsWith(k))
-    .sort((a, b) => b.length - a.length)[0] || '/';
+  // 高亮：/seller/influencer/xxx 也算 /influencers
+  const selectedKey = (() => {
+    if (loc.pathname.startsWith('/seller/influencer')) return '/influencers';
+    if (loc.pathname === '/seller' || loc.pathname === '/seller/') return '/seller';
+    const match = NAV_ITEMS
+      .map(i => i.key)
+      .filter(k => k !== '/' && loc.pathname.startsWith(k))
+      .sort((a, b) => b.length - a.length)[0];
+    return match || '/';
+  })();
 
   return (
     <Header
@@ -62,41 +78,23 @@ export default function Nav() {
         style={{ flex: 1, justifyContent: 'center', borderBottom: 'none' }}
       />
       <Space>
-        {/* 卖家登录/已登录 */}
         {isSellerLogged ? (
           <Dropdown
             menu={{
               items: [
-                {
-                  key: 'seller-name',
-                  label: `👤 ${sellerUser.name || sellerUser.email}`,
-                  disabled: true,
-                },
+                { key: 'seller-name', label: `👤 ${sellerUser.name || sellerUser.email}`, disabled: true },
                 { type: 'divider' },
-                {
-                  key: 'logout',
-                  label: '退出登录',
-                  icon: <LogoutOutlined />,
-                  onClick: handleSellerLogout,
-                },
+                { key: 'logout', label: '退出登录', icon: <LogoutOutlined />, onClick: handleSellerLogout },
               ],
             }}
           >
-            <Button icon={<UserOutlined />}>
-              {sellerUser.name || '卖家中心'}
-            </Button>
+            <Button icon={<UserOutlined />}>{sellerUser.name || '卖家中心'}</Button>
           </Dropdown>
         ) : (
-          <Button onClick={() => nav('/seller-login')}>
-            卖家登录
-          </Button>
+          <Button onClick={() => nav('/seller-login')}>卖家登录</Button>
         )}
-        <Button onClick={() => nav('/influencer-login')}>
-          红人登录
-        </Button>
-        <Button type="primary" onClick={() => nav('/interest')}>
-          立即合作
-        </Button>
+        <Button onClick={() => nav('/influencer-login')}>红人登录</Button>
+        <Button type="primary" onClick={() => nav('/interest')}>立即合作</Button>
       </Space>
     </Header>
   );
