@@ -1,4 +1,5 @@
-import { Layout, Menu, Button, Space } from 'antd';
+import { Layout, Menu, Button, Space, Dropdown, message } from 'antd';
+import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const { Header } = Layout;
@@ -15,7 +16,19 @@ export default function Nav() {
   const nav = useNavigate();
   const loc = useLocation();
 
-  // 高亮：/products/xxx 也算 /products
+  // 判断登录状态
+  const sellerUser = JSON.parse(localStorage.getItem('seller_user') || '{}');
+  const sellerToken = localStorage.getItem('seller_token');
+  const isSellerLogged = !!sellerToken && sellerUser?.role === 'seller';
+
+  const handleSellerLogout = () => {
+    localStorage.removeItem('seller_token');
+    localStorage.removeItem('seller_user');
+    message.success('已退出');
+    nav('/');
+  };
+
+  // 高亮
   const selectedKey = NAV_ITEMS
     .map(i => i.key)
     .filter(k => k !== '/' && loc.pathname.startsWith(k))
@@ -49,6 +62,35 @@ export default function Nav() {
         style={{ flex: 1, justifyContent: 'center', borderBottom: 'none' }}
       />
       <Space>
+        {/* 卖家登录/已登录 */}
+        {isSellerLogged ? (
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: 'seller-name',
+                  label: `👤 ${sellerUser.name || sellerUser.email}`,
+                  disabled: true,
+                },
+                { type: 'divider' },
+                {
+                  key: 'logout',
+                  label: '退出登录',
+                  icon: <LogoutOutlined />,
+                  onClick: handleSellerLogout,
+                },
+              ],
+            }}
+          >
+            <Button icon={<UserOutlined />}>
+              {sellerUser.name || '卖家中心'}
+            </Button>
+          </Dropdown>
+        ) : (
+          <Button onClick={() => nav('/seller-login')}>
+            卖家登录
+          </Button>
+        )}
         <Button onClick={() => nav('/influencer-login')}>
           红人登录
         </Button>

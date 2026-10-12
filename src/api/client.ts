@@ -7,10 +7,11 @@ const client = axios.create({
 });
 
 client.interceptors.request.use((config) => {
-  // 优先用红人 token
+  // 优先级：红人 token > 卖家 token > 管理员 token
   const infToken = localStorage.getItem('inf_token');
+  const sellerToken = localStorage.getItem('seller_token');
   const adminToken = localStorage.getItem('jwt_token');
-  const token = infToken || adminToken;
+  const token = infToken || sellerToken || adminToken;
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -22,23 +23,28 @@ client.interceptors.response.use(
     const url: string = error.config?.url || '';
     const isPublic = url.startsWith('/api/v1/public/');
     const isInfluencerApi = url.startsWith('/api/v1/influencer/');
+    const isSellerApi = url.startsWith('/api/v1/seller/');
 
     // 公开接口 401 不跳登录
     if (status === 401 && !isPublic) {
       // 清掉所有 token
       localStorage.removeItem('inf_token');
       localStorage.removeItem('inf_user');
+      localStorage.removeItem('seller_token');
+      localStorage.removeItem('seller_user');
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('user');
 
-      // 红人接口 → 红人登录页；其他 → 通用登录页
       const isOnLoginPage =
         window.location.pathname === '/login' ||
-        window.location.pathname === '/influencer-login';
+        window.location.pathname === '/influencer-login' ||
+        window.location.pathname === '/seller-login';
 
       if (!isOnLoginPage) {
         if (isInfluencerApi) {
           window.location.href = '/influencer-login';
+        } else if (isSellerApi) {
+          window.location.href = '/seller-login';
         } else {
           window.location.href = '/login';
         }

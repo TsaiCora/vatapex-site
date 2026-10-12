@@ -1,13 +1,95 @@
 import { useEffect, useState } from 'react';
 import {
   Card, Table, Tag, Space, Button, Input, Modal, Form, InputNumber,
-  message, Tabs, Image, Popconfirm, Empty,
+  message, Tabs, Image, Popconfirm, Empty, Upload, Select,
 } from 'antd';
 import {
-  PlusOutlined, SearchOutlined, LogoutOutlined, CopyOutlined,
+  PlusOutlined, SearchOutlined, LogoutOutlined, CopyOutlined, InboxOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
+
+const VIDEO_TYPES = [
+  { value: '开箱', label: '开箱' },
+  { value: '测评', label: '测评' },
+  { value: '教程', label: '教程' },
+  { value: '剧情', label: '剧情' },
+  { value: '生活', label: '生活' },
+  { value: '搞笑', label: '搞笑' },
+  { value: '其他', label: '其他' },
+];
+
+// ==================== 截图上传 ====================
+function ScreenshotUpload({ value, onChange }: { value?: string; onChange?: (v: string) => void }) {
+  const [uploading, setUploading] = useState(false);
+
+  const upload = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      message.error('图片不能超过 5MB');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      message.error('只支持图片文件');
+      return;
+    }
+    setUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const resp = await client.post('/api/v1/influencer/upload-screenshot', {
+        image_base64: base64,
+        content_type: file.type,
+      });
+      onChange?.(resp.data.url);
+      message.success('上传成功');
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || '上传失败');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  useEffect(() => {
+    const handler = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) { e.preventDefault(); upload(file); return; }
+        }
+      }
+    };
+    document.addEventListener('paste', handler);
+    return () => document.removeEventListener('paste', handler);
+  }, []);
+
+  return (
+    <div>
+      <Upload.Dragger
+        accept="image/*"
+        showUploadList={false}
+        beforeUpload={(file) => { upload(file); return false; }}
+        disabled={uploading}
+      >
+        <p className="ant-upload-drag-icon"><InboxOutlined /></p>
+        <p className="ant-upload-text">点击/拖拽上传图片，或 Ctrl+V 粘贴截图</p>
+        <p className="ant-upload-hint">PNG/JPG/WebP，最大 5MB</p>
+      </Upload.Dragger>
+      {value && (
+        <div style={{ marginTop: 12, position: 'relative', display: 'inline-block' }}>
+          <Image src={value} width={160} style={{ borderRadius: 8, border: '1px solid #ddd' }} />
+          <Button size="small" danger style={{ position: 'absolute', top: 4, right: 4 }}
+                  onClick={() => onChange?.('')}>删除</Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function InfluencerDashboard() {
   const nav = useNavigate();
@@ -18,11 +100,29 @@ export default function InfluencerDashboard() {
   const [products, setProducts] = useState<any[]>([]);
   const [myProducts, setMyProducts] = useState<any[]>([]);
   const [myCodes, setMyCodes] = useState<any[]>([]);
+  const [mySeries, setMySeries] = useState<any[]>([]);
+  const [myPosts, setMyPosts] = useState<any[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+
+  // 挑产品
   const [addOpen, setAddOpen] = useState(false);
   const [pickingProduct, setPickingProduct] = useState<any>(null);
   const [form] = Form.useForm();
+
+  // 系列
+  const [seriesModalOpen, setSeriesModalOpen] = useState(false);
+  const [editingSeries, setEditingSeries] = useState<any>(null);
+  const [seriesForm] = Form.useForm();
+  const [savingSeries, setSavingSeries] = useState(false);
+
+  // 帖子
+  const [postModalOpen, setPostModalOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<any>(null);
+  const [postForm] = Form.useForm();
+  const [savingPost, setSavingPost] = useState(false);
+  const [postScreenshot, setPostScreenshot] = useState('');
 
   useEffect(() => {
     if (!token || user.role !== 'influencer') {
@@ -35,16 +135,20 @@ export default function InfluencerDashboard() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [meR, prodR, myProdR, codeR] = await Promise.all([
+      const [meR, prodR, myProdR, codeR, seriesR, postR] = await Promise.all([
         client.get('/api/v1/influencer/me'),
         client.get('/api/v1/influencer/products'),
         client.get('/api/v1/influencer/my-products'),
         client.get('/api/v1/influencer/my-codes'),
+        client.get('/api/v1/influencer/my-series'),
+        client.get('/api/v1/influencer/my-posts'),
       ]);
       setMe(meR.data);
       setProducts(prodR.data || []);
       setMyProducts(myProdR.data || []);
       setMyCodes(codeR.data || []);
+      setMySeries(seriesR.data || []);
+      setMyPosts(postR.data || []);
     } catch (e: any) {
       message.error(e.response?.data?.detail || '加载失败');
     } finally {
@@ -58,6 +162,7 @@ export default function InfluencerDashboard() {
     nav('/');
   };
 
+  // ========== 挑产品 ==========
   const handleAddProduct = (product: any) => {
     setPickingProduct(product);
     form.setFieldsValue({
@@ -85,13 +190,109 @@ export default function InfluencerDashboard() {
     }
   };
 
-  const handleRemove = async (rid: string) => {
+  const handleRemoveProduct = async (rid: string) => {
     try {
       await client.delete(`/api/v1/influencer/my-products/${rid}`);
       message.success('已移除');
       loadAll();
     } catch (e: any) {
       message.error(e.response?.data?.detail || '移除失败');
+    }
+  };
+
+  // ========== 系列 ==========
+  const openCreateSeries = () => {
+    setEditingSeries(null);
+    seriesForm.resetFields();
+    seriesForm.setFieldsValue({ sort_order: 999, status: 'active' });
+    setSeriesModalOpen(true);
+  };
+
+  const openEditSeries = (s: any) => {
+    setEditingSeries(s);
+    seriesForm.setFieldsValue(s);
+    setSeriesModalOpen(true);
+  };
+
+  const handleSaveSeries = async () => {
+    const values = await seriesForm.validateFields();
+    setSavingSeries(true);
+    try {
+      if (editingSeries) {
+        await client.put(`/api/v1/influencer/my-series/${editingSeries.id}`, values);
+        message.success('已更新');
+      } else {
+        await client.post('/api/v1/influencer/my-series', values);
+        message.success('已创建');
+      }
+      setSeriesModalOpen(false);
+      seriesForm.resetFields();
+      setEditingSeries(null);
+      loadAll();
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || '保存失败');
+    } finally {
+      setSavingSeries(false);
+    }
+  };
+
+  const handleDeleteSeries = async (sid: string) => {
+    try {
+      await client.delete(`/api/v1/influencer/my-series/${sid}`);
+      message.success('已删除');
+      loadAll();
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || '删除失败');
+    }
+  };
+
+  // ========== 帖子 ==========
+  const openCreatePost = () => {
+    setEditingPost(null);
+    postForm.resetFields();
+    setPostScreenshot('');
+    postForm.setFieldsValue({ post_type: 'video', status: 'published' });
+    setPostModalOpen(true);
+  };
+
+  const openEditPost = (p: any) => {
+    setEditingPost(p);
+    postForm.setFieldsValue(p);
+    setPostScreenshot(p.screenshot_url || '');
+    setPostModalOpen(true);
+  };
+
+  const handleSavePost = async () => {
+    const values = await postForm.validateFields();
+    setSavingPost(true);
+    try {
+      const payload = { ...values, screenshot_url: postScreenshot };
+      if (editingPost) {
+        await client.put(`/api/v1/influencer/my-posts/${editingPost.id}`, payload);
+        message.success('已更新');
+      } else {
+        await client.post('/api/v1/influencer/my-posts', payload);
+        message.success('已创建');
+      }
+      setPostModalOpen(false);
+      postForm.resetFields();
+      setEditingPost(null);
+      setPostScreenshot('');
+      loadAll();
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || '保存失败');
+    } finally {
+      setSavingPost(false);
+    }
+  };
+
+  const handleDeletePost = async (pid: string) => {
+    try {
+      await client.delete(`/api/v1/influencer/my-posts/${pid}`);
+      message.success('已删除');
+      loadAll();
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || '删除失败');
     }
   };
 
@@ -113,7 +314,6 @@ export default function InfluencerDashboard() {
 
   return (
     <div className="page-container">
-      {/* 顶部 */}
       <div style={{
         display: 'flex', justifyContent: 'space-between',
         alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12,
@@ -133,8 +333,104 @@ export default function InfluencerDashboard() {
       </div>
 
       <Tabs
-        defaultActiveKey="my"
+        defaultActiveKey="series"
         items={[
+          // ★ 我的系列
+          {
+            key: 'series',
+            label: `我的系列 (${mySeries.length})`,
+            children: (
+              <Card
+                extra={
+                  <Button type="primary" icon={<PlusOutlined />} onClick={openCreateSeries}>
+                    新建系列
+                  </Button>
+                }
+              >
+                <Table
+                  dataSource={mySeries}
+                  rowKey="id"
+                  loading={loading}
+                  pagination={{ pageSize: 20 }}
+                  scroll={{ x: 'max-content' }}
+                  columns={[
+                    { title: '系列名', dataIndex: 'name', width: 180 },
+                    { title: '平台', dataIndex: 'platform', width: 100,
+                      render: (v: string) => v ? <Tag color="blue">{v}</Tag> : '-' },
+                    { title: '时长', dataIndex: 'video_duration', width: 110 },
+                    { title: '风格', dataIndex: 'video_type', width: 120 },
+                    { title: '平均播放', dataIndex: 'avg_views', width: 110,
+                      render: (v: number) => (v || 0).toLocaleString() },
+                    { title: '互动率', dataIndex: 'avg_engagement_rate', width: 90,
+                      render: (v: number) => v ? `${v}%` : '-' },
+                    {
+                      title: '操作', width: 140,
+                      render: (_: any, r: any) => (
+                        <Space>
+                          <Button size="small" type="link" onClick={() => openEditSeries(r)}>编辑</Button>
+                          <Popconfirm title="确认删除？" onConfirm={() => handleDeleteSeries(r.id)}>
+                            <Button size="small" danger type="link">删除</Button>
+                          </Popconfirm>
+                        </Space>
+                      ),
+                    },
+                  ]}
+                  locale={{ emptyText: '还没有系列，点击右上角新建' }}
+                />
+              </Card>
+            ),
+          },
+          // ★ 我的帖子
+          {
+            key: 'posts',
+            label: `我的帖子 (${myPosts.length})`,
+            children: (
+              <Card
+                extra={
+                  <Button type="primary" icon={<PlusOutlined />} onClick={openCreatePost}>
+                    新建帖子
+                  </Button>
+                }
+              >
+                <Table
+                  dataSource={myPosts}
+                  rowKey="id"
+                  loading={loading}
+                  pagination={{ pageSize: 20 }}
+                  scroll={{ x: 'max-content' }}
+                  columns={[
+                    { title: '标题', dataIndex: 'title', width: 200, ellipsis: true },
+                    { title: '系列', dataIndex: 'series_name', width: 140 },
+                    { title: '产品', dataIndex: 'product_name', width: 140 },
+                    { title: '时长', dataIndex: 'video_duration', width: 80,
+                      render: (v: number) => v ? `${v}s` : '-' },
+                    { title: '播放', dataIndex: 'views', width: 90,
+                      render: (v: number) => (v || 0).toLocaleString() },
+                    { title: '点赞', dataIndex: 'likes', width: 80,
+                      render: (v: number) => (v || 0).toLocaleString() },
+                    { title: 'GMV', dataIndex: 'gmv', width: 100,
+                      render: (v: number) => `$${(v || 0).toFixed(2)}` },
+                    { title: '订单', dataIndex: 'orders', width: 70 },
+                    { title: '截图', dataIndex: 'screenshot_url', width: 80,
+                      render: (v: string) => v ? <Image src={v} width={40} height={40} style={{ objectFit: 'cover' }} /> : '-' },
+                    {
+                      title: '操作', width: 140,
+                      render: (_: any, r: any) => (
+                        <Space>
+                          <Button size="small" type="link" onClick={() => openEditPost(r)}>编辑</Button>
+                          <Popconfirm title="确认删除？" onConfirm={() => handleDeletePost(r.id)}>
+                            <Button size="small" danger type="link">删除</Button>
+                          </Popconfirm>
+                        </Space>
+                      ),
+                    },
+                  ]}
+                  locale={{ emptyText: '还没有帖子，点击右上角新建' }}
+                />
+              </Card>
+            ),
+          },
+          // 我的推荐
           {
             key: 'my',
             label: `我的推荐 (${myProducts.length})`,
@@ -151,45 +447,34 @@ export default function InfluencerDashboard() {
                       title: '产品图', dataIndex: 'product_image', width: 80,
                       render: (v: string) => v
                         ? <Image src={v} width={50} height={50} style={{ objectFit: 'cover' }} />
-                        : <div style={{ width: 50, height: 50, background: '#f0f0f0', borderRadius: 4 }} />,
+                        : <div style={{ width: 50, height: 50, background: '#f0f0f0' }} />,
                     },
-                    { title: '产品标题', dataIndex: 'product_title', ellipsis: true },
-                    {
-                      title: '折扣码', dataIndex: 'discount_code',
-                      render: (v: string) => v
-                        ? <Tag color="purple" style={{ fontFamily: 'monospace' }}>{v}</Tag>
-                        : '-',
-                    },
-                    {
-                      title: '折扣价', dataIndex: 'deal_price',
-                      render: (v: number) => v ? `$${v}` : '-',
-                    },
+                    { title: '产品标题', dataIndex: 'product_title' },
+                    { title: '折扣码', dataIndex: 'discount_code',
+                      render: (v: string) => v ? <Tag color="purple" style={{ fontFamily: 'monospace' }}>{v}</Tag> : '-' },
+                    { title: '折扣价', dataIndex: 'deal_price', render: (v: number) => v ? `$${v}` : '-' },
                     { title: '渠道标签', dataIndex: 'channel_label', render: (v: string) => v || '-' },
-                    { title: '排序', dataIndex: 'sort_order', width: 70 },
                     {
                       title: '操作', width: 80,
                       render: (_: any, r: any) => (
-                        <Popconfirm title="确认移除？" onConfirm={() => handleRemove(r.id)}>
+                        <Popconfirm title="确认移除？" onConfirm={() => handleRemoveProduct(r.id)}>
                           <Button size="small" danger type="link">移除</Button>
                         </Popconfirm>
                       ),
                     },
                   ]}
-                  locale={{
-                    emptyText: (
-                      <Empty description="还没有推荐产品，去「挑产品」添加吧" />
-                    )
-                  }}
+                  locale={{ emptyText: '还没有推荐产品' }}
                 />
               </Card>
             ),
           },
+          // 挑产品
           {
             key: 'pick',
             label: '挑产品',
             children: (
               <Card>
-                <Space style={{ marginBottom: 16 }} wrap>
+                <Space style={{ marginBottom: 16 }}>
                   <Input
                     placeholder="搜索产品标题 / 平台 ID"
                     prefix={<SearchOutlined />}
@@ -210,27 +495,16 @@ export default function InfluencerDashboard() {
                       title: '产品图', dataIndex: 'image_url', width: 80,
                       render: (v: string) => v
                         ? <Image src={v} width={50} height={50} style={{ objectFit: 'cover' }} />
-                        : <div style={{ width: 50, height: 50, background: '#f0f0f0', borderRadius: 4 }} />,
+                        : <div style={{ width: 50, height: 50, background: '#f0f0f0' }} />,
                     },
-                    { title: '产品标题', dataIndex: 'title', ellipsis: true },
+                    { title: '产品标题', dataIndex: 'title' },
                     { title: '平台ID', dataIndex: 'platform_product_id', width: 120 },
-                    {
-                      title: '原价', dataIndex: 'original_price', width: 90,
-                      render: (v: number) => v ? `$${v}` : '-',
-                    },
-                    {
-                      title: '当前价', dataIndex: 'price', width: 90,
-                      render: (v: number) => v ? `$${v}` : '-',
-                    },
+                    { title: '当前价', dataIndex: 'price', width: 90,
+                      render: (v: number) => v ? `$${v}` : '-' },
                     {
                       title: '操作', width: 130,
                       render: (_: any, r: any) => (
-                        <Button
-                          size="small"
-                          type="primary"
-                          icon={<PlusOutlined />}
-                          onClick={() => handleAddProduct(r)}
-                        >
+                        <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => handleAddProduct(r)}>
                           添加到主页
                         </Button>
                       ),
@@ -241,6 +515,7 @@ export default function InfluencerDashboard() {
               </Card>
             ),
           },
+          // 我的折扣码
           {
             key: 'codes',
             label: `我的折扣码 (${myCodes.length})`,
@@ -272,7 +547,7 @@ export default function InfluencerDashboard() {
         ]}
       />
 
-      {/* 添加弹窗 */}
+      {/* 挑产品弹窗 */}
       <Modal
         title={`添加到主页 · ${pickingProduct?.title || ''}`}
         open={addOpen}
@@ -282,8 +557,7 @@ export default function InfluencerDashboard() {
         width={520}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="discount_code" label="使用折扣码"
-                     extra="从你的折扣码里选，粉丝点复制即可">
+          <Form.Item name="discount_code" label="使用折扣码">
             <Input placeholder="如 VTXTECHC" />
           </Form.Item>
           <Form.Item name="deal_price" label="折扣价（$）">
@@ -294,6 +568,123 @@ export default function InfluencerDashboard() {
           </Form.Item>
           <Form.Item name="sort_order" label="排序（越小越靠前）" initialValue={999}>
             <InputNumber style={{ width: '100%' }} min={0} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 系列弹窗 */}
+      <Modal
+        title={editingSeries ? '编辑系列' : '新建系列'}
+        open={seriesModalOpen}
+        onOk={handleSaveSeries}
+        onCancel={() => { setSeriesModalOpen(false); setEditingSeries(null); seriesForm.resetFields(); }}
+        okText={editingSeries ? '保存' : '创建'}
+        confirmLoading={savingSeries}
+        width={600}
+      >
+        <Form form={seriesForm} layout="vertical">
+          <Form.Item name="name" label="系列名" rules={[{ required: true }]}>
+            <Input placeholder="如 Tech Review 2026" />
+          </Form.Item>
+          <Form.Item name="description" label="系列介绍">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+          <Space>
+            <Form.Item name="platform" label="平台">
+              <Select style={{ width: 150 }} allowClear options={[
+                { value: 'tiktok', label: 'TikTok' },
+                { value: 'instagram', label: 'Instagram' },
+                { value: 'youtube', label: 'YouTube' },
+              ]} />
+            </Form.Item>
+            <Form.Item name="video_duration" label="时长">
+              <Input style={{ width: 140 }} placeholder="如 30-60 秒" />
+            </Form.Item>
+            <Form.Item name="video_type" label="风格">
+              <Select style={{ width: 140 }} allowClear options={VIDEO_TYPES} />
+            </Form.Item>
+          </Space>
+          <Space>
+            <Form.Item name="avg_views" label="平均播放" initialValue={0}>
+              <InputNumber style={{ width: 150 }} min={0} />
+            </Form.Item>
+            <Form.Item name="avg_engagement_rate" label="互动率 %" initialValue={0}>
+              <InputNumber style={{ width: 150 }} min={0} max={100} step={0.1} />
+            </Form.Item>
+          </Space>
+        </Form>
+      </Modal>
+
+      {/* 帖子弹窗 */}
+      <Modal
+        title={editingPost ? '编辑帖子' : '新建帖子'}
+        open={postModalOpen}
+        onOk={handleSavePost}
+        onCancel={() => { setPostModalOpen(false); setEditingPost(null); postForm.resetFields(); setPostScreenshot(''); }}
+        okText={editingPost ? '保存' : '创建'}
+        confirmLoading={savingPost}
+        width={700}
+      >
+        <Form form={postForm} layout="vertical">
+          <Form.Item name="title" label="标题" rules={[{ required: true }]}>
+            <Input placeholder="如 Anker 充电宝开箱" />
+          </Form.Item>
+          <Space>
+            <Form.Item name="series_id" label="所属系列">
+              <Select style={{ width: 200 }} allowClear placeholder="选择系列"
+                      options={mySeries.map((s: any) => ({ value: s.id, label: s.name }))} />
+            </Form.Item>
+            <Form.Item name="product_name" label="关联产品">
+              <Input style={{ width: 200 }} placeholder="产品名" />
+            </Form.Item>
+          </Space>
+          <Form.Item name="discount_code" label="折扣码" extra="填了折扣码后，会自动从订单系统算 GMV 和订单数">
+            <Input placeholder="如 VTXTECHC" />
+          </Form.Item>
+          <Space>
+            <Form.Item name="platform" label="平台">
+              <Select style={{ width: 150 }} allowClear options={[
+                { value: 'tiktok', label: 'TikTok' },
+                { value: 'instagram', label: 'Instagram' },
+                { value: 'youtube', label: 'YouTube' },
+              ]} />
+            </Form.Item>
+            <Form.Item name="post_type" label="类型" initialValue="video">
+              <Select style={{ width: 120 }} options={[
+                { value: 'video', label: '视频' },
+                { value: 'image', label: '图文' },
+                { value: 'live', label: '直播' },
+              ]} />
+            </Form.Item>
+            <Form.Item name="video_duration" label="时长(秒)">
+              <InputNumber style={{ width: 120 }} min={0} />
+            </Form.Item>
+          </Space>
+          <Form.Item name="post_url" label="帖子链接">
+            <Input placeholder="https://tiktok.com/..." />
+          </Form.Item>
+          <Space>
+            <Form.Item name="views" label="播放量" initialValue={0}>
+              <InputNumber style={{ width: 130 }} min={0} />
+            </Form.Item>
+            <Form.Item name="likes" label="点赞" initialValue={0}>
+              <InputNumber style={{ width: 130 }} min={0} />
+            </Form.Item>
+            <Form.Item name="comments" label="评论" initialValue={0}>
+              <InputNumber style={{ width: 130 }} min={0} />
+            </Form.Item>
+            <Form.Item name="shares" label="分享" initialValue={0}>
+              <InputNumber style={{ width: 130 }} min={0} />
+            </Form.Item>
+          </Space>
+          <Form.Item name="published_at" label="发布时间">
+            <Input placeholder="2026-10-15" />
+          </Form.Item>
+          <Form.Item label="效果截图（拖拽/粘贴上传）">
+            <ScreenshotUpload value={postScreenshot} onChange={setPostScreenshot} />
+          </Form.Item>
+          <Form.Item name="note" label="备注">
+            <Input.TextArea rows={2} />
           </Form.Item>
         </Form>
       </Modal>

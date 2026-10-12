@@ -11,6 +11,8 @@ import InfluencerHome from './pages/InfluencerHome';
 import InfluencerLogin from './pages/InfluencerLogin';
 import InfluencerDashboard from './pages/InfluencerDashboard';
 import InfluencerPick from './pages/InfluencerPick';
+import SellerLogin from './pages/SellerLogin';
+import InfluencerDetail from './pages/InfluencerDetail';
 
 function InfluencerRoute() {
   const { handle } = useParams<{ handle: string }>();
@@ -29,12 +31,20 @@ function App() {
           <Route path="/products" element={<Products />} />
           <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/interest" element={<Interest />} />
+
           {/* 红人专属主页 */}
           <Route path="/influencer/:handle" element={<InfluencerRoute />} />
-          {/* ★ 红人登录 + 红人中心 */}
+
+          {/* 红人登录 + 红人中心 */}
           <Route path="/influencer-login" element={<InfluencerLogin />} />
           <Route path="/influencer-portal" element={<InfluencerDashboard />} />
+
+          {/* 红人免登录挑货 */}
           <Route path="/pick/:token" element={<InfluencerPick />} />
+
+          {/* 卖家登录 + 卖家看的红人详情 */}
+          <Route path="/seller-login" element={<SellerLogin />} />
+          <Route path="/seller/influencer/:publicCode" element={<InfluencerDetail />} />
         </Routes>
       </div>
       <Footer />
