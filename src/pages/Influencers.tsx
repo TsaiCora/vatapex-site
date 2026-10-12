@@ -67,7 +67,23 @@ export default function Influencers() {
     { title: '池类型', dataIndex: 'pool_type', width: 110 },
   ];
 
-  // ★ 卖家登录 → 加"详情"按钮
+  // ★ 卖家登录 → 加"报价"列
+  if (isSeller) {
+    columns.push({
+      title: '对卖家报价',
+      width: 130,
+      render: (_: any, r: any) => {
+        if (!r.price_to_seller) return <span style={{ color: '#999' }}>面议</span>;
+        return (
+          <span style={{ color: '#cf1322', fontWeight: 600 }}>
+            {r.price_currency || 'CNY'} {r.price_to_seller}
+          </span>
+        );
+      },
+    });
+  }
+
+  // 操作列
   if (isSeller) {
     columns.push({
       title: '操作',
@@ -84,7 +100,6 @@ export default function Influencers() {
       ),
     });
   } else {
-    // 公众 → 显示"合作咨询"
     columns.push({
       title: '操作',
       width: 120,
