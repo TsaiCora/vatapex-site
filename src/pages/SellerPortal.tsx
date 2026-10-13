@@ -1,4 +1,3 @@
-// 文件：site/src/pages/SellerPortal.tsx
 import { useEffect, useState } from 'react';
 import {
   Card, Table, Statistic, Row, Col, Spin, Tag, Descriptions, Tabs, Image, Button,
@@ -122,16 +121,18 @@ export default function SellerPortal() {
     } catch {}
   };
 
+  // ★ 卖家版渠道（含 price_member）
   const loadChannels = async () => {
     try {
-      const r = await client.get('/api/v1/public/channels');
+      const r = await client.get('/api/v1/seller/channels');
       setChannels(r.data || []);
     } catch {}
   };
 
+  // ★ 卖家版红人（含 default_code）
   const loadInfluencers = async () => {
     try {
-      const r = await client.get('/api/v1/public/influencers');
+      const r = await client.get('/api/v1/seller/influencers');
       setInfluencers(r.data || []);
     } catch {}
   };
@@ -202,25 +203,32 @@ export default function SellerPortal() {
     }
   };
 
-  // 发起推广
-  const handleOpenPromo = () => {
-    promoForm.resetFields();
-    promoTargetType === 'channel';
-    setPromoTargetType('channel');
-    setSelectedPrice(0);
-    setPromoOpen(true);
+  // ★ 发起推广：取红人价格从 default_code.seller_base_price
+  const getChannelPrice = (val: string): number => {
+    const ch = channels.find(c => c.public_code === val || c.id === val);
+    return Number(ch?.price_member || 0);
+  };
+
+  const getInfluencerPrice = (val: string): number => {
+    const inf = influencers.find(i => i.public_code === val || i.id === val);
+    return Number(inf?.default_code?.seller_base_price || inf?.price_to_seller || 0);
   };
 
   const handleTargetChange = (val: string) => {
     let price = 0;
     if (promoTargetType === 'channel') {
-      const ch = channels.find(c => c.public_code === val || c.id === val);
-      price = Number(ch?.price_member || 0);
+      price = getChannelPrice(val);
     } else {
-      const inf = influencers.find(i => i.id === val || i.public_code === val);
-      price = Number(inf?.price_to_seller || 0);
+      price = getInfluencerPrice(val);
     }
     setSelectedPrice(price);
+  };
+
+  const handleOpenPromo = () => {
+    promoForm.resetFields();
+    setPromoTargetType('channel');
+    setSelectedPrice(0);
+    setPromoOpen(true);
   };
 
   const handleCreatePromo = async () => {
@@ -248,6 +256,7 @@ export default function SellerPortal() {
   if (loading) {
     return <div style={{ textAlign: 'center', padding: 100 }}><Spin size="large" /></div>;
   }
+
   const sellerInfo = data?.seller || {};
   const totalOrders = data?.total_orders || 0;
   const totalGmv = data?.total_gmv || 0;
@@ -439,7 +448,8 @@ export default function SellerPortal() {
                 <Table dataSource={progressList} rowKey="id" pagination={{ pageSize: 20 }}
                        scroll={{ x: 'max-content' }}
                        columns={[
-                         { title: '产品', dataIndex: 'product_title', ellipsis: true },
+                         { title: '产品', dataIndex: 'product_title', ellipsis: true,
+                           render: (v: string) => v || <span style={{ color: '#ccc' }}>未关联产品</span> },
                          { title: '折扣码', dataIndex: 'discount_code', width: 130,
                            render: (v: string) => <Tag color="purple" style={{ fontFamily: 'monospace' }}>{v}</Tag> },
                          { title: '渠道/红人', dataIndex: 'target_channel', width: 140, render: (v: string) => v || '-' },
@@ -599,6 +609,7 @@ export default function SellerPortal() {
         <Form form={promoForm} layout="vertical">
           <Form.Item name="product_id" label="选择产品" rules={[{ required: true }]}>
             <Select placeholder="选择你的产品"
+                    notFoundContent="请先在「我的产品」中新建产品"
                     options={products.map(p => ({ value: p.id, label: `${p.title} (${p.platform_product_id || p.id.slice(0, 8)})` }))} />
           </Form.Item>
 
@@ -614,10 +625,17 @@ export default function SellerPortal() {
                      rules={[{ required: true }]}>
             <Select showSearch optionFilterProp="label"
                     onChange={handleTargetChange}
+                    notFoundContent={promoTargetType === 'channel' ? '暂无渠道' : '暂无红人'}
                     placeholder={promoTargetType === 'channel' ? '选择渠道' : '选择红人'}
                     options={promoTargetType === 'channel'
-                      ? channels.map(c => ({ value: c.public_code || c.id, label: `${c.public_code} ${c.country} ¥${c.price_member || 0}` }))
-                      : influencers.map(i => ({ value: i.public_code || i.id, label: `${i.public_code} ${i.country || ''} ¥${i.price_to_seller || 0}` }))
+                      ? channels.map(c => ({
+                          value: c.public_code || c.id,
+                          label: `${c.public_code} ${c.country || ''} ¥${c.price_member || 0}`,
+                        }))
+                      : influencers.map(i => ({
+                          value: i.public_code || i.id,
+                          label: `${i.public_code} ${i.country || ''} ¥${i.default_code?.seller_base_price || i.price_to_seller || 0}`,
+                        }))
                     } />
           </Form.Item>
 
