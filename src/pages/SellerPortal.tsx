@@ -202,30 +202,6 @@ export default function SellerPortal() {
     }
   };
 
-  const getChannelPrice = (val: string): number => {
-    const ch = channels.find(
-      c => String(c.public_code) === String(val) || String(c.id) === String(val)
-    );
-    return Number(ch?.price_member || 0);
-  };
-
-  const getInfluencerPrice = (val: string): number => {
-    const inf = influencers.find(
-      i => String(i.public_code) === String(val) || String(i.id) === String(val)
-    );
-    return Number(inf?.price_to_seller || inf?.default_code?.seller_base_price || 0);
-  };
-
-  const handleTargetChange = (val: string) => {
-    let price = 0;
-    if (promoTargetType === 'channel') {
-      price = getChannelPrice(val);
-    } else {
-      price = getInfluencerPrice(val);
-    }
-    setSelectedPrice(price);
-  };
-
   const handleOpenPromo = () => {
     promoForm.resetFields();
     setPromoTargetType('channel');
@@ -489,53 +465,71 @@ export default function SellerPortal() {
                              const colorMap: any = { '推广中': 'blue', '已完成': 'green', '待开始': 'default' };
                              return <Tag color={colorMap[v] || 'default'}>{v}</Tag>;
                            } },
-                         { 
+                         {
                            title: '进度', dataIndex: 'progress', width: 220,
                            render: (v: number, r: any) => (
                              <Tooltip
                                title={
-                                 <div style={{ fontSize: 12, lineHeight: 1.8 }}>
+                                 <div style={{ fontSize: 12, lineHeight: 1.9 }}>
                                    <div>⏱ 时间：{r.time_progress || 0}%</div>
                                    <div>
                                      📦 库存：{r.inventory_progress || 0}%
-                                     {r.inventory ? `（${r.total_units || 0} / ${r.inventory}）` : '（未设置）'}
+                                     {r.initial_inventory
+                                       ? `（已售 ${r.total_units || 0} / 共 ${r.initial_inventory}）`
+                                       : '（未设置）'}
                                    </div>
                                    <div>
                                      💰 预算：{r.budget_progress || 0}%
-                                     {r.promo_budget ? `（¥${r.total_budget_used || 0} / ¥${r.promo_budget}）` : '（未设置）'}
+                                     {r.promo_budget
+                                       ? `（已用 ¥${r.total_budget_used || 0} / 共 ¥${r.promo_budget}）`
+                                       : '（未设置）'}
+                                   </div>
+                                   {r.unit_discount > 0 && (
+                                     <div style={{ color: '#999' }}>单件折扣 ¥{r.unit_discount}</div>
+                                   )}
+                                   <div style={{ marginTop: 4, paddingTop: 4, borderTop: '1px solid #eee', color: '#888' }}>
+                                     数据来源：
+                                     {r.data_source === 'crawler' && (
+                                       <>
+                                         爬虫
+                                         {r.crawler_updated_at && (
+                                           <>（{new Date(r.crawler_updated_at).toLocaleString('zh-CN')}）</>
+                                         )}
+                                       </>
+                                     )}
+                                     {r.data_source === 'import' && <>导入数据（爬虫未抓到）</>}
+                                     {r.data_source === 'none' && <>无数据</>}
                                    </div>
                                  </div>
                                }
                              >
-                               <Progress 
-                                 percent={v} 
-                                 status={v === 100 ? 'success' : 'active'} 
-                                 style={{ width: 180 }} 
+                               <Progress
+                                 percent={v}
+                                 status={v === 100 ? 'success' : 'active'}
+                                 style={{ width: 180 }}
                                />
                              </Tooltip>
                            ),
                          },
-                         { 
-                           title: '销量', width: 110,
+                         {
+                           title: '销量', width: 120,
                            render: (_: any, r: any) => {
-                             if (!r.inventory) return '-';
-                             const ratio = r.total_units / r.inventory;
-                             const color = ratio >= 1 ? '#3f8600' : '#000';
+                             if (!r.initial_inventory) return '-';
+                             const ratio = r.total_units / r.initial_inventory;
                              return (
-                               <span style={{ color }}>
-                                 {r.total_units || 0} / {r.inventory}
+                               <span style={{ color: ratio >= 1 ? '#3f8600' : '#000' }}>
+                                 {r.total_units || 0} / {r.initial_inventory}
                                </span>
                              );
                            },
                          },
-                         { 
-                           title: '预算消耗', width: 150,
+                         {
+                           title: '预算消耗', width: 160,
                            render: (_: any, r: any) => {
                              if (!r.promo_budget) return '-';
                              const ratio = r.total_budget_used / r.promo_budget;
-                             const color = ratio >= 1 ? '#cf1322' : '#000';
                              return (
-                               <span style={{ color }}>
+                               <span style={{ color: ratio >= 1 ? '#cf1322' : '#000' }}>
                                  ¥{r.total_budget_used || 0} / ¥{r.promo_budget}
                                </span>
                              );
