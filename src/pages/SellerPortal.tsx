@@ -63,6 +63,7 @@ export default function SellerPortal() {
   const [channels, setChannels] = useState<any[]>([]);
   const [influencers, setInfluencers] = useState<any[]>([]);
   const [selectedPrice, setSelectedPrice] = useState(0);
+  const [selectedTarget, setSelectedTarget] = useState<any>(null);
 
   // 新建产品
   const [createOpen, setCreateOpen] = useState(false);
@@ -235,6 +236,7 @@ export default function SellerPortal() {
     promoForm.resetFields();
     setPromoTargetType('channel');
     setSelectedPrice(0);
+    setSelectedTarget(null);
     setPromoOpen(true);
   };
 
@@ -249,15 +251,27 @@ export default function SellerPortal() {
 
     setCreatingPromo(true);
     try {
-      await client.post('/api/v1/seller/promotions', {
+      const res = await client.post('/api/v1/seller/promotions', {
         product_id: values.product_id,
         target_type: promoTargetType,
         target_id: targetId,
         note: values.note || '',
       });
-      message.success(`推广单已创建，扣除 ¥${selectedPrice}`);
+
+      const mode = res.data?.billing_mode || 'fixed';
+      const price = res.data?.price || 0;
+      if (mode === 'commission') {
+        message.success('推广单已创建（纯分红，活动结束后结算）');
+      } else if (mode === 'hybrid') {
+        message.success(`推广单已创建，扣底价 ¥${price}，活动结束后结算分红`);
+      } else {
+        message.success(`推广单已创建，扣除 ¥${price}`);
+      }
+
       setPromoOpen(false);
       promoForm.resetFields();
+      setSelectedTarget(null);
+      setSelectedPrice(0);
       loadSummary();
       loadSpending();
     } catch (e: any) {
@@ -494,7 +508,8 @@ export default function SellerPortal() {
               <Card>
                 <div style={{ marginBottom: 16 }}>
                   <p style={{ color: '#667085' }}>
-                    💡 选择产品 + 渠道/红人 → 系统按固定价扣费 → 生成推广单，运营会跟进。
+                    💡 选择产品 + 渠道/红人 → 系统按计费模式扣费 → 生成推广单，运营会跟进。
+                    红人支持「固定 / 纯分红 / 底价+分红」三种模式。
                   </p>
                   <p style={{ color: '#cf1322', fontWeight: 600 }}>
                     当前余额：¥{balance.toFixed(2)}
@@ -611,14 +626,20 @@ export default function SellerPortal() {
         title="发起推广"
         open={promoOpen}
         onOk={handleCreatePromo}
-        onCancel={() => { setPromoOpen(false); promoForm.resetFields(); }}
-        okText={`确认推广${selectedPrice ? `（扣 ¥${selectedPrice}）` : ''}`}
+        onCancel={() => { setPromoOpen(false); promoForm.resetFields(); setSelectedTarget(null); setSelectedPrice(0); }}
+        okText={
+          selectedTarget?.billing_mode === 'commission'
+            ? '确认推广（纯分红）'
+            : selectedPrice
+              ? `确认推广（扣 ¥${selectedPrice}）`
+              : '确认推广'
+        }
         confirmLoading={creatingPromo}
         width={560}
       >
         <Alert type="info" showIcon
                message={`当前余额：¥${balance.toFixed(2)}`}
-               description="系统按固定价扣费，生成推广单后运营会跟进。"
+               description="系统按计费模式扣费：固定模式立即扣费；纯分红和底价+分红在活动结束后结算。"
                style={{ marginBottom: 16 }} />
         <Form form={promoForm} layout="vertical">
           <Form.Item name="product_id" label="选择产品" rules={[{ required: true }]}>
@@ -642,11 +663,8 @@ export default function SellerPortal() {
               optionFilterProp="label"
               labelInValue
               onChange={(opt: any) => {
-                // opt = { value, label, price }
-                const price = Number(opt?.price || 0);
-                console.log('[promo] 选中=', opt, 'price=', price);
-                setSelectedPrice(price);
-                // labelInValue 模式下，表单值是 {value,label}，需要手动回写 value
+                setSelectedTarget(opt);
+                setSelectedPrice(Number(opt?.price || 0));
                 promoForm.setFieldsValue({ target_id: opt?.value });
               }}
               notFoundContent={promoTargetType === 'channel' ? '暂无渠道' : '暂无红人'}
@@ -657,19 +675,56 @@ export default function SellerPortal() {
                       value: c.public_code || c.id,
                       label: `${c.public_code} ${c.country || ''} ¥${c.price_member || 0}`,
                       price: Number(c.price_member || 0),
+                      billing_mode: 'fixed',
+                      commission_rate: 0,
+                      base_price: Number(c.price_member || 0),
                     }))
-                  : influencers.map(i => ({
-                      value: i.public_code || i.id,
-                      label: `${i.public_code} ${i.country || ''} ¥${i.price_to_seller || i.default_code?.seller_base_price || 0}`,
-                      price: Number(i.price_to_seller || i.default_code?.seller_base_price || 0),
-                    }))
+                  : influencers.map(i => {
+                      const dc = i.default_code || {};
+                      const mode = dc.billing_mode || 'fixed';
+                      const base = Number(dc.seller_base_price || 0);
+                      const rate = Number(dc.seller_commission_rate || 0);
+
+                      let price = 0;
+                      let suffix = '';
+                      if (mode === 'fixed') {
+                        price = base;
+                        suffix = `¥${base}`;
+                      } else if (mode === 'commission') {
+                        price = 0;
+                        suffix = `纯分红 ${(rate * 100).toFixed(0)}%`;
+                      } else if (mode === 'hybrid') {
+                        price = base;
+                        suffix = `底价 ¥${base} + ${(rate * 100).toFixed(0)}% 分红`;
+                      } else {
+                        price = base;
+                        suffix = `¥${base}`;
+                      }
+
+                      return {
+                        value: i.public_code || i.id,
+                        label: `${i.public_code} ${i.country || ''} ${suffix}`,
+                        price,
+                        billing_mode: mode,
+                        commission_rate: rate,
+                        base_price: base,
+                      };
+                    })
               }
             />
           </Form.Item>
 
-          {selectedPrice > 0 && (
-            <div style={{ fontSize: 16, color: '#cf1322', fontWeight: 600, marginBottom: 12 }}>
-              扣费金额：¥{selectedPrice}
+          {selectedTarget && (
+            <div style={{ fontSize: 15, color: '#cf1322', fontWeight: 600, marginBottom: 12 }}>
+              {selectedTarget.billing_mode === 'fixed' && (
+                <>扣费金额：¥{selectedTarget.price}</>
+              )}
+              {selectedTarget.billing_mode === 'commission' && (
+                <>创建时免费，活动结束后按 GMV 的 {(selectedTarget.commission_rate * 100).toFixed(0)}% 分红（需保证余额充足）</>
+              )}
+              {selectedTarget.billing_mode === 'hybrid' && (
+                <>创建时扣底价 ¥{selectedTarget.price}，活动结束后另按 GMV 的 {(selectedTarget.commission_rate * 100).toFixed(0)}% 分红</>
+              )}
             </div>
           )}
 
