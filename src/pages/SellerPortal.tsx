@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Card, Table, Statistic, Row, Col, Spin, Tag, Descriptions, Tabs, Image, Button,
   message, Modal, Form, Input, InputNumber, Select, Space, Upload, Alert, Empty, Progress,
-  Radio,
+  Radio, Tooltip,
 } from 'antd';
 import { UploadOutlined, PlusOutlined, WalletOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
@@ -122,7 +122,6 @@ export default function SellerPortal() {
     } catch {}
   };
 
-  // ★ 卖家版渠道（含 price_member）
   const loadChannels = async () => {
     try {
       const r = await client.get('/api/v1/seller/channels');
@@ -130,7 +129,6 @@ export default function SellerPortal() {
     } catch {}
   };
 
-  // ★ 卖家版红人（含 default_code）
   const loadInfluencers = async () => {
     try {
       const r = await client.get('/api/v1/seller/influencers');
@@ -204,7 +202,6 @@ export default function SellerPortal() {
     }
   };
 
-  // ★ 发起推广：取渠道价格（price_member）
   const getChannelPrice = (val: string): number => {
     const ch = channels.find(
       c => String(c.public_code) === String(val) || String(c.id) === String(val)
@@ -212,7 +209,6 @@ export default function SellerPortal() {
     return Number(ch?.price_member || 0);
   };
 
-  // ★ 发起推广：取红人价格（与后端一致，优先 price_to_seller）
   const getInfluencerPrice = (val: string): number => {
     const inf = influencers.find(
       i => String(i.public_code) === String(val) || String(i.id) === String(val)
@@ -227,8 +223,6 @@ export default function SellerPortal() {
     } else {
       price = getInfluencerPrice(val);
     }
-    // 调试用，定位价格匹配问题后可删
-    console.log('[promo] target_type=', promoTargetType, 'val=', val, 'price=', price);
     setSelectedPrice(price);
   };
 
@@ -243,7 +237,6 @@ export default function SellerPortal() {
   const handleCreatePromo = async () => {
     const values = await promoForm.validateFields();
 
-    // 兼容 labelInValue：如果 target_id 是对象，取 value
     const targetId =
       typeof values.target_id === 'object' && values.target_id !== null
         ? values.target_id.value
@@ -473,6 +466,12 @@ export default function SellerPortal() {
             label: `推广进度 (${progressList.length})`,
             children: (
               <Card>
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                  message="进度 = max(时间进度, 库存进度, 预算进度)，悬浮查看明细"
+                />
                 <Table dataSource={progressList} rowKey="id" pagination={{ pageSize: 20 }}
                        scroll={{ x: 'max-content' }}
                        columns={[
@@ -490,10 +489,58 @@ export default function SellerPortal() {
                              const colorMap: any = { '推广中': 'blue', '已完成': 'green', '待开始': 'default' };
                              return <Tag color={colorMap[v] || 'default'}>{v}</Tag>;
                            } },
-                         { title: '进度', dataIndex: 'progress', width: 200,
-                           render: (v: number) => (
-                             <Progress percent={v} status={v === 100 ? 'success' : 'active'} style={{ width: 160 }} />
-                           ) },
+                         { 
+                           title: '进度', dataIndex: 'progress', width: 220,
+                           render: (v: number, r: any) => (
+                             <Tooltip
+                               title={
+                                 <div style={{ fontSize: 12, lineHeight: 1.8 }}>
+                                   <div>⏱ 时间：{r.time_progress || 0}%</div>
+                                   <div>
+                                     📦 库存：{r.inventory_progress || 0}%
+                                     {r.inventory ? `（${r.total_units || 0} / ${r.inventory}）` : '（未设置）'}
+                                   </div>
+                                   <div>
+                                     💰 预算：{r.budget_progress || 0}%
+                                     {r.promo_budget ? `（¥${r.total_budget_used || 0} / ¥${r.promo_budget}）` : '（未设置）'}
+                                   </div>
+                                 </div>
+                               }
+                             >
+                               <Progress 
+                                 percent={v} 
+                                 status={v === 100 ? 'success' : 'active'} 
+                                 style={{ width: 180 }} 
+                               />
+                             </Tooltip>
+                           ),
+                         },
+                         { 
+                           title: '销量', width: 110,
+                           render: (_: any, r: any) => {
+                             if (!r.inventory) return '-';
+                             const ratio = r.total_units / r.inventory;
+                             const color = ratio >= 1 ? '#3f8600' : '#000';
+                             return (
+                               <span style={{ color }}>
+                                 {r.total_units || 0} / {r.inventory}
+                               </span>
+                             );
+                           },
+                         },
+                         { 
+                           title: '预算消耗', width: 150,
+                           render: (_: any, r: any) => {
+                             if (!r.promo_budget) return '-';
+                             const ratio = r.total_budget_used / r.promo_budget;
+                             const color = ratio >= 1 ? '#cf1322' : '#000';
+                             return (
+                               <span style={{ color }}>
+                                 ¥{r.total_budget_used || 0} / ¥{r.promo_budget}
+                               </span>
+                             );
+                           },
+                         },
                        ]}
                        locale={{ emptyText: '暂无推广记录' }} />
               </Card>
@@ -650,7 +697,7 @@ export default function SellerPortal() {
 
           <Form.Item label="推广目标类型">
             <Radio.Group value={promoTargetType}
-                         onChange={(e) => { setPromoTargetType(e.target.value); setSelectedPrice(0); promoForm.setFieldsValue({ target_id: undefined }); }}>
+                         onChange={(e) => { setPromoTargetType(e.target.value); setSelectedPrice(0); setSelectedTarget(null); promoForm.setFieldsValue({ target_id: undefined }); }}>
               <Radio.Button value="channel">渠道</Radio.Button>
               <Radio.Button value="influencer">红人</Radio.Button>
             </Radio.Group>
