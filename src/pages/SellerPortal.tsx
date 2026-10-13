@@ -203,15 +203,20 @@ export default function SellerPortal() {
     }
   };
 
-  // ★ 发起推广：取红人价格从 default_code.seller_base_price
+  // ★ 发起推广：取渠道价格（price_member）
   const getChannelPrice = (val: string): number => {
-    const ch = channels.find(c => c.public_code === val || c.id === val);
+    const ch = channels.find(
+      c => String(c.public_code) === String(val) || String(c.id) === String(val)
+    );
     return Number(ch?.price_member || 0);
   };
 
+  // ★ 发起推广：取红人价格（与后端一致，优先 price_to_seller）
   const getInfluencerPrice = (val: string): number => {
-    const inf = influencers.find(i => i.public_code === val || i.id === val);
-    return Number(inf?.default_code?.seller_base_price || inf?.price_to_seller || 0);
+    const inf = influencers.find(
+      i => String(i.public_code) === String(val) || String(i.id) === String(val)
+    );
+    return Number(inf?.price_to_seller || inf?.default_code?.seller_base_price || 0);
   };
 
   const handleTargetChange = (val: string) => {
@@ -221,6 +226,8 @@ export default function SellerPortal() {
     } else {
       price = getInfluencerPrice(val);
     }
+    // 调试用，定位价格匹配问题后可删
+    console.log('[promo] target_type=', promoTargetType, 'val=', val, 'price=', price);
     setSelectedPrice(price);
   };
 
@@ -233,12 +240,19 @@ export default function SellerPortal() {
 
   const handleCreatePromo = async () => {
     const values = await promoForm.validateFields();
+
+    // 兼容 labelInValue：如果 target_id 是对象，取 value
+    const targetId =
+      typeof values.target_id === 'object' && values.target_id !== null
+        ? values.target_id.value
+        : values.target_id;
+
     setCreatingPromo(true);
     try {
       await client.post('/api/v1/seller/promotions', {
         product_id: values.product_id,
         target_type: promoTargetType,
-        target_id: values.target_id,
+        target_id: targetId,
         note: values.note || '',
       });
       message.success(`推广单已创建，扣除 ¥${selectedPrice}`);
@@ -623,20 +637,34 @@ export default function SellerPortal() {
 
           <Form.Item name="target_id" label={promoTargetType === 'channel' ? '选择渠道' : '选择红人'}
                      rules={[{ required: true }]}>
-            <Select showSearch optionFilterProp="label"
-                    onChange={handleTargetChange}
-                    notFoundContent={promoTargetType === 'channel' ? '暂无渠道' : '暂无红人'}
-                    placeholder={promoTargetType === 'channel' ? '选择渠道' : '选择红人'}
-                    options={promoTargetType === 'channel'
-                      ? channels.map(c => ({
-                          value: c.public_code || c.id,
-                          label: `${c.public_code} ${c.country || ''} ¥${c.price_member || 0}`,
-                        }))
-                      : influencers.map(i => ({
-                          value: i.public_code || i.id,
-                          label: `${i.public_code} ${i.country || ''} ¥${i.default_code?.seller_base_price || i.price_to_seller || 0}`,
-                        }))
-                    } />
+            <Select
+              showSearch
+              optionFilterProp="label"
+              labelInValue
+              onChange={(opt: any) => {
+                // opt = { value, label, price }
+                const price = Number(opt?.price || 0);
+                console.log('[promo] 选中=', opt, 'price=', price);
+                setSelectedPrice(price);
+                // labelInValue 模式下，表单值是 {value,label}，需要手动回写 value
+                promoForm.setFieldsValue({ target_id: opt?.value });
+              }}
+              notFoundContent={promoTargetType === 'channel' ? '暂无渠道' : '暂无红人'}
+              placeholder={promoTargetType === 'channel' ? '选择渠道' : '选择红人'}
+              options={
+                promoTargetType === 'channel'
+                  ? channels.map(c => ({
+                      value: c.public_code || c.id,
+                      label: `${c.public_code} ${c.country || ''} ¥${c.price_member || 0}`,
+                      price: Number(c.price_member || 0),
+                    }))
+                  : influencers.map(i => ({
+                      value: i.public_code || i.id,
+                      label: `${i.public_code} ${i.country || ''} ¥${i.price_to_seller || i.default_code?.seller_base_price || 0}`,
+                      price: Number(i.price_to_seller || i.default_code?.seller_base_price || 0),
+                    }))
+              }
+            />
           </Form.Item>
 
           {selectedPrice > 0 && (
